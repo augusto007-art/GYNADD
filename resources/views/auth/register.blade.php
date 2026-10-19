@@ -156,17 +156,20 @@
         .enlaces a:hover { text-decoration: underline; }
         .enlaces p { margin: 8px 0; color: #9fb3c8; }
 
-        .errores {
-            background: rgba(255, 80, 80, 0.08);
-            border: 1px solid rgba(255, 80, 80, 0.4);
+        .error-field {
             color: #ff8080;
-            padding: 10px 12px;
-            border-radius: 3px;
-            font-size: 13px;
-            margin-bottom: 16px;
-            list-style: none;
+            font-size: 12px;
+            margin: 6px 0 0;
         }
-        .errores li { margin: 2px 0; }
+        .error-field[hidden] { display: none; }
+        .field-status {
+            min-height: 16px;
+            margin: 6px 0 0;
+            font-size: 12px;
+        }
+        .field-status.success { color: #48d597; }
+        .field-status.pending { color: #ffad42; }
+        input[aria-invalid="true"] { border-color: #ff8080; }
     </style>
 </head>
 <body>
@@ -180,42 +183,57 @@ SE VIENE A LOGRAR</div>
         <div class="panel">
             <div class="ref-tag">CREAR CUENTA</div>
 
-            @if ($errors->any())
-                <ul class="errores">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            @endif
-
-            <form method="POST" action="{{ route('registro') }}">
+            <form method="POST" action="{{ route('registro') }}" novalidate data-email-check-url="{{ route('registro.email') }}">
                 @csrf
                 <label for="name">Nombre</label>
-                <input id="name" type="text" name="name" value="{{ old('name') }}" autocomplete="name" required>
+                <input id="name" type="text" name="name" value="{{ old('name') }}" autocomplete="name" required aria-describedby="name-error" @error('name') aria-invalid="true" @enderror>
+                @error('name')
+                    <p class="error-field" id="name-error" role="alert">{{ $message }}</p>
+                @else
+                    <p class="error-field" id="name-error" role="alert" hidden></p>
+                @enderror
 
                 <label for="email">Correo</label>
-                <input id="email" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required>
+                <input id="email" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required aria-describedby="email-error email-status" @error('email') aria-invalid="true" @enderror>
+                @error('email')
+                    <p class="error-field" id="email-error" role="alert">{{ $message }}</p>
+                @else
+                    <p class="error-field" id="email-error" role="alert" hidden></p>
+                @enderror
+                <p id="email-status" class="field-status" aria-live="polite"></p>
 
                 <label for="password">Contraseña</label>
                 <div class="password-field">
-                    <input id="password" type="password" name="password" autocomplete="new-password" required aria-describedby="password-strength">
+                    <input id="password" type="password" name="password" autocomplete="new-password" required aria-describedby="password-strength password-error" @error('password') aria-invalid="true" @enderror>
                     <button class="toggle-password" type="button" data-password-toggle="password" aria-controls="password" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button>
                 </div>
+                @error('password')
+                    <p class="error-field" id="password-error" role="alert">{{ $message }}</p>
+                @else
+                    <p class="error-field" id="password-error" role="alert" hidden></p>
+                @enderror
                 <div id="password-strength" class="password-strength strength-neutral" aria-live="polite">
                     <p id="strength-status">Seguridad: escribe una contraseña</p>
                     <ul>
-                        <li id="length-check">Al menos 15 caracteres</li>
-                        <li id="common-check">No usar una contraseña común o fácil de adivinar</li>
+                        <li id="length-check">Entre 8 y 12 caracteres</li>
+                        <li id="composition-check">Una mayúscula, una minúscula, un número y un símbolo permitido</li>
+                        <li id="characters-check">Solo letras, números y símbolos !@#$%&amp;*_-.</li>
+                        <li id="common-check">No usar secuencias, repeticiones o contraseñas comunes</li>
                     </ul>
                 </div>
-                <small>Este sitio no usa autenticación multifactor: por eso exige 15 caracteres. Puedes usar espacios, frases y cualquier tipo de carácter.</small>
-                <small>La lista de contraseñas comunes es local y no comprueba bases de datos de contraseñas filtradas.</small>
+                <small>Usa entre 8 y 12 caracteres, combinando mayúsculas, minúsculas, números y símbolos permitidos (!@#$%&amp;*_-.). No se permiten espacios ni otros símbolos.</small>
+                <small>Se rechazan contraseñas comunes, secuencias predecibles y repeticiones largas.</small>
 
-                <label for="password_confirmation">Confirmar contraseña</label>
+                <label for="password-confirmation">Confirmar contraseña</label>
                 <div class="password-field">
-                    <input id="password_confirmation" type="password" name="password_confirmation" autocomplete="new-password" required>
-                    <button class="toggle-password" type="button" data-password-toggle="password_confirmation" aria-controls="password_confirmation" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button>
+                    <input id="password-confirmation" type="password" name="password_confirmation" autocomplete="new-password" required aria-describedby="password-confirmation-error" @error('password_confirmation') aria-invalid="true" @enderror>
+                    <button class="toggle-password" type="button" data-password-toggle="password-confirmation" aria-controls="password-confirmation" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button>
                 </div>
+                @error('password_confirmation')
+                    <p class="error-field" id="password-confirmation-error" role="alert">{{ $message }}</p>
+                @else
+                    <p class="error-field" id="password-confirmation-error" role="alert" hidden></p>
+                @enderror
 
                 <button type="submit">Registrarme</button>
             </form>
@@ -230,33 +248,318 @@ SE VIENE A LOGRAR</div>
         </div>
     </div>
     <script>
+        const registrationForm = document.querySelector('form[data-email-check-url]');
+        const nameInput = document.getElementById('name');
+        const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
+        const confirmationInput = document.getElementById('password-confirmation');
         const strengthStatus = document.getElementById('strength-status');
         const lengthCheck = document.getElementById('length-check');
+        const compositionCheck = document.getElementById('composition-check');
+        const charactersCheck = document.getElementById('characters-check');
         const commonCheck = document.getElementById('common-check');
+        const emailStatus = document.getElementById('email-status');
+        const submitButton = registrationForm.querySelector('[type="submit"]');
+        let emailCheckState = 'idle';
+        let emailAvailabilityMessage = '';
+        let emailCheckTimer;
+        let emailCheckController;
+        let submitAfterEmailCheck = false;
         const commonPasswords = new Set([
             '123456789012345', '1234567890123456', '111111111111111',
             'password', 'password123', 'password12345678', 'passwordpassword',
             'contrasena', 'contrasena123456', 'contraseña', 'qwerty',
             'qwerty123456789', 'letmein', 'iloveyou', 'admin'
         ]);
+        const commonPatterns = [
+            'password', 'contrasena', 'contraseña', 'qwerty', 'letmein',
+            'iloveyou', 'admin', '123456', 'abcdef', 'asdfgh'
+        ];
+
+        function setFieldError(input, message) {
+            const error = document.getElementById(`${input.id}-error`);
+            error.textContent = message;
+            error.hidden = !message;
+            input.setAttribute('aria-invalid', String(Boolean(message)));
+            input.setCustomValidity(message);
+            return !message;
+        }
+
+        function validateName(showEmpty = false) {
+            const name = nameInput.value.trim();
+            const message = !name && showEmpty
+                ? 'Escribe tu nombre para crear la cuenta.'
+                : (name.length > 255 ? 'El nombre no puede superar los 255 caracteres.' : '');
+
+            return setFieldError(nameInput, message);
+        }
+
+        function validateEmailFormat(showEmpty = false) {
+            const email = emailInput.value;
+            let message = '';
+
+            if (!email && showEmpty) {
+                message = 'Escribe tu correo electrónico.';
+            } else if (email && email.length > 255) {
+                message = 'El correo no puede superar los 255 caracteres.';
+            } else if (email && (/\s/.test(email) || emailInput.validity.typeMismatch || !/^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$/.test(email))) {
+                message = 'Escribe un correo electrónico válido, sin espacios.';
+            }
+
+            return setFieldError(emailInput, message);
+        }
+
+        function setEmailStatus(message, state = '') {
+            emailStatus.textContent = message;
+            emailStatus.className = `field-status${state ? ` ${state}` : ''}`;
+        }
+
+        async function checkEmailAvailability() {
+            window.clearTimeout(emailCheckTimer);
+            if (!validateEmailFormat()) {
+                emailCheckState = 'idle';
+                setEmailStatus('');
+                return false;
+            }
+
+            if (emailCheckController) {
+                emailCheckController.abort();
+            }
+
+            const controller = new AbortController();
+            emailCheckController = controller;
+            const emailBeingChecked = emailInput.value;
+            emailCheckState = 'checking';
+            setEmailStatus('Comprobando si el correo está disponible…', 'pending');
+
+            try {
+                const url = new URL(registrationForm.dataset.emailCheckUrl, window.location.href);
+                url.searchParams.set('email', emailBeingChecked);
+                const response = await fetch(url, {
+                    headers: { Accept: 'application/json' },
+                    signal: controller.signal,
+                });
+                const result = await response.json();
+
+                if (controller.signal.aborted || emailInput.value !== emailBeingChecked) {
+                    return false;
+                }
+
+                if (response.status === 422) {
+                    emailCheckState = 'invalid';
+                    emailAvailabilityMessage = result.message || 'Revisa el formato del correo.';
+                    setFieldError(emailInput, emailAvailabilityMessage);
+                    setEmailStatus('');
+                    return false;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`No se pudo comprobar el correo (HTTP ${response.status}).`);
+                }
+
+                if (!result.available) {
+                    emailCheckState = 'unavailable';
+                    emailAvailabilityMessage = result.message;
+                    setFieldError(emailInput, emailAvailabilityMessage);
+                    setEmailStatus('');
+                    return false;
+                }
+
+                emailCheckState = 'available';
+                emailAvailabilityMessage = '';
+                setFieldError(emailInput, '');
+                setEmailStatus(result.message, 'success');
+                return true;
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    return false;
+                }
+
+                emailCheckState = 'error';
+                setEmailStatus('No pudimos comprobar el correo ahora. Al registrarte, el sistema volverá a validarlo.', 'pending');
+                return false;
+            }
+        }
+
+        function scheduleEmailCheck() {
+            window.clearTimeout(emailCheckTimer);
+            if (emailCheckController) {
+                emailCheckController.abort();
+            }
+
+            emailCheckState = 'idle';
+            emailAvailabilityMessage = '';
+            if (!validateEmailFormat()) {
+                setEmailStatus('');
+                return;
+            }
+
+            emailCheckTimer = window.setTimeout(checkEmailAvailability, 500);
+        }
+
+        function validatePassword(showEmpty = false) {
+            const password = passwordInput.value;
+            const length = Array.from(password).length;
+            const isAllowed = /^[A-Za-z0-9!@#$%&*_.-]+$/.test(password);
+            const hasComposition = /[A-Z]/.test(password)
+                && /[a-z]/.test(password)
+                && /[0-9]/.test(password)
+                && /[!@#$%&*_.-]/.test(password);
+            const normalizedPassword = password.toLowerCase();
+            const isCommon = commonPasswords.has(normalizedPassword)
+                || commonPatterns.some((pattern) => normalizedPassword.includes(pattern))
+                || /(.)\1{4,}/.test(password);
+            let message = '';
+
+            if (!password && showEmpty) {
+                message = 'Escribe una contraseña.';
+            } else if (password && (length < 8 || length > 12)) {
+                message = 'La contraseña debe tener entre 8 y 12 caracteres.';
+            } else if (password && !isAllowed) {
+                message = 'La contraseña solo puede contener letras sin acentos, números y estos símbolos: ! @ # $ % & * _ - .';
+            } else if (password && !hasComposition) {
+                message = 'Incluye al menos una mayúscula, una minúscula, un número y un símbolo permitido.';
+            } else if (password && isCommon) {
+                message = 'Elige una contraseña que no sea común o fácil de adivinar.';
+            }
+
+            setFieldError(passwordInput, message);
+            return !message;
+        }
+
+        function validateConfirmation(showEmpty = false) {
+            const confirmation = confirmationInput.value;
+            const message = !confirmation && showEmpty
+                ? 'Confirma tu contraseña.'
+                : (confirmation && confirmation !== passwordInput.value ? 'La confirmación no coincide con la contraseña.' : '');
+
+            return setFieldError(confirmationInput, message);
+        }
 
         function updatePasswordStrength() {
             const password = passwordInput.value;
             const length = Array.from(password).length;
-            const isCommon = commonPasswords.has(password.toLowerCase());
-            const isStrong = length >= 15 && !isCommon;
-            const isMedium = length >= 8 && !isStrong && !isCommon;
+            const normalizedPassword = password.toLowerCase();
+            const isAllowed = /^[A-Za-z0-9!@#$%&*_.-]+$/.test(password);
+            const hasComposition = /[A-Z]/.test(password)
+                && /[a-z]/.test(password)
+                && /[0-9]/.test(password)
+                && /[!@#$%&*_.-]/.test(password);
+            const isCommon = commonPasswords.has(normalizedPassword)
+                || commonPatterns.some((pattern) => normalizedPassword.includes(pattern))
+                || /(.)\1{4,}/.test(password);
+            const isStrong = length >= 8 && length <= 12 && isAllowed && hasComposition && !isCommon;
+            const isMedium = length >= 8 && length <= 12 && isAllowed && !isCommon && !isStrong;
             const state = isStrong ? 'strong' : (isMedium ? 'medium' : 'weak');
             const labels = { weak: 'Insegura', medium: 'Intermedia', strong: 'Segura' };
 
-            lengthCheck.className = length >= 15 ? 'strength-strong' : (length >= 8 ? 'strength-medium' : 'strength-weak');
+            lengthCheck.className = length >= 8 && length <= 12
+                ? 'strength-strong'
+                : (length < 8 ? 'strength-weak' : 'strength-medium');
+            compositionCheck.className = hasComposition ? 'strength-strong' : (password ? 'strength-weak' : 'strength-neutral');
+            charactersCheck.className = isAllowed ? 'strength-strong' : (password ? 'strength-weak' : 'strength-neutral');
             commonCheck.className = isCommon ? 'strength-weak' : (password ? 'strength-strong' : 'strength-neutral');
             strengthStatus.textContent = password ? `Seguridad: ${labels[state]}` : 'Seguridad: escribe una contraseña';
             document.getElementById('password-strength').className = `password-strength strength-${password ? state : 'neutral'}`;
         }
 
-        passwordInput.addEventListener('input', updatePasswordStrength);
+        nameInput.addEventListener('input', () => {
+            validateName();
+        });
+        nameInput.addEventListener('blur', () => {
+            validateName(true);
+        });
+        emailInput.addEventListener('input', () => {
+            scheduleEmailCheck();
+        });
+        emailInput.addEventListener('blur', () => {
+            if (validateEmailFormat(true)) {
+                checkEmailAvailability();
+            }
+        });
+        passwordInput.addEventListener('input', () => {
+            validatePassword();
+            updatePasswordStrength();
+            if (confirmationInput.value) {
+                validateConfirmation();
+            }
+        });
+        passwordInput.addEventListener('blur', () => {
+            validatePassword(true);
+        });
+        confirmationInput.addEventListener('input', () => {
+            validateConfirmation();
+        });
+        confirmationInput.addEventListener('blur', () => {
+            validateConfirmation(true);
+        });
+
+        registrationForm.addEventListener('submit', (event) => {
+            const fieldsAreValid = [
+                validateName(true),
+                validateEmailFormat(true),
+                validatePassword(true),
+                validateConfirmation(true),
+            ].every(Boolean);
+
+            if (!fieldsAreValid) {
+                event.preventDefault();
+                registrationForm.querySelector('[aria-invalid="true"]')?.focus();
+                return;
+            }
+
+            if (emailCheckState === 'unavailable' || emailCheckState === 'invalid') {
+                event.preventDefault();
+                setFieldError(emailInput, emailAvailabilityMessage);
+                emailInput.focus();
+                return;
+            }
+
+            if (emailCheckState === 'checking') {
+                event.preventDefault();
+                submitAfterEmailCheck = true;
+                setEmailStatus('Espera un momento mientras comprobamos el correo…', 'pending');
+                checkEmailAvailability().then((available) => {
+                    if (submitAfterEmailCheck && (available || emailCheckState === 'error')) {
+                        submitAfterEmailCheck = false;
+                        registrationForm.requestSubmit(submitButton);
+                    } else {
+                        submitAfterEmailCheck = false;
+                        if (emailCheckState === 'unavailable' || emailCheckState === 'invalid') {
+                            emailInput.focus();
+                        }
+                    }
+                });
+                return;
+            }
+
+            if (emailCheckState === 'idle') {
+                event.preventDefault();
+                submitAfterEmailCheck = true;
+                checkEmailAvailability().then((available) => {
+                    if (submitAfterEmailCheck && (available || emailCheckState === 'error')) {
+                        submitAfterEmailCheck = false;
+                        registrationForm.requestSubmit(submitButton);
+                    } else {
+                        submitAfterEmailCheck = false;
+                        if (emailCheckState === 'unavailable') {
+                            emailInput.focus();
+                        }
+                    }
+                });
+            }
+        });
+
+        if (nameInput.value) {
+            validateName();
+        }
+        if (emailInput.value && validateEmailFormat()) {
+            checkEmailAvailability();
+        }
+        if (passwordInput.value) {
+            validatePassword();
+            updatePasswordStrength();
+        }
         document.querySelectorAll('[data-password-toggle]').forEach((button) => {
             button.addEventListener('click', () => {
                 const input = document.getElementById(button.dataset.passwordToggle);

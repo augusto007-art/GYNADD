@@ -23,11 +23,17 @@ Laravel is accessible, powerful, and provides tools required for large, robust a
 
 ## Seguridad de contraseñas e inicio de sesión
 
-El manejo de contraseñas sigue algunas recomendaciones de [NIST SP 800-63B](https://pages.nist.gov/800-63-4/sp800-63b.html): como el inicio de sesión no usa MFA, exige al menos 15 caracteres; acepta frases y no impone reglas artificiales de mayúsculas, números o símbolos. También bloquea una pequeña lista local de contraseñas comunes. Esta lista es básica y no equivale a consultar una lista actualizada de contraseñas filtradas, así que la aplicación no debe describirse como una implementación certificada o completa del estándar.
+Las contraseñas deben tener entre 8 y 12 caracteres e incluir mayúsculas, minúsculas, números y al menos uno de estos símbolos: `! @ # $ % & * _ - .`. No se permiten espacios ni otros caracteres. También se rechazan algunas contraseñas comunes, secuencias predecibles y repeticiones largas; la lista local no equivale a consultar una base actualizada de contraseñas filtradas.
 
-El formulario muestra si la contraseña es insegura (rojo), intermedia (naranja) o segura según esos criterios (verde). El indicador ayuda durante la creación, pero la validación real se ejecuta también en el servidor. El inicio de sesión se bloquea durante un minuto después de tres contraseñas incorrectas para la combinación de correo e IP.
+El formulario muestra si la contraseña es insegura (rojo), intermedia (naranja) o segura según esos criterios (verde). En el registro, el nombre, el formato y la disponibilidad del correo, los requisitos de contraseña y su confirmación se revisan mientras se completan los campos; no hace falta esperar a enviar el formulario para ver los errores. El servidor vuelve a validar todos los datos al crear la cuenta. El inicio de sesión se bloquea durante un minuto después de tres intentos incorrectos para la combinación de correo e IP.
 
-NIST SP 800-63B es una guía del National Institute of Standards and Technology para la gestión de identidades digitales. Entre sus recomendaciones están permitir contraseñas largas, evitar reglas obligatorias de composición y comparar contraseñas nuevas con una lista de valores comunes o comprometidos. El estándar recomienda MFA para reducir el riesgo de acceso no autorizado; este proyecto aún no lo implementa.
+## Verificación de correo
+
+Las cuentas nuevas reciben un enlace de verificación por correo. Las cuentas sin verificar pueden iniciar sesión únicamente para acceder a la pantalla de verificación; las rutas protegidas requieren que el correo esté confirmado. Desde esa pantalla se puede solicitar otro enlace.
+
+Para que los mensajes lleguen a los usuarios, configura un proveedor de correo en las variables `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` y `MAIL_FROM_ADDRESS` del entorno. La configuración predeterminada usa el transporte `log`, que escribe los mensajes en los logs de Laravel en vez de enviarlos. El enlace de verificación se genera usando `APP_URL`; configura ahí la dirección pública exacta de la aplicación, incluido el subdirectorio si la instalaste bajo `htdocs` (por ejemplo, `http://localhost/login-app/public` en XAMPP). Después de cambiarla, ejecuta `php artisan config:clear`. El enlace firmado puede abrirse sin iniciar sesión, caduca según el tiempo de verificación configurado y lleva a la pantalla de acceso después de confirmar el correo.
+
+El correo de verificación está en español e incluye un botón para confirmar, el enlace alternativo, el plazo de expiración y recomendaciones de seguridad.
 
 ## Learning Laravel
 

@@ -210,17 +210,11 @@
             margin-bottom: 16px;
         }
 
-        .errores {
-            background: rgba(255, 80, 80, 0.08);
-            border: 1px solid rgba(255, 80, 80, 0.4);
+        .error-field {
             color: #ff8080;
-            padding: 10px 12px;
-            border-radius: 3px;
-            font-size: 13px;
-            margin-bottom: 16px;
-            list-style: none;
+            font-size: 12px;
+            margin: 6px 0 0;
         }
-        .errores li { margin: 2px 0; }
     </style>
 </head>
 <body>
@@ -238,27 +232,25 @@ SE VIENE A LOGRAR</div>
                 <div class="status-ok">{{ session('status') }}</div>
             @endif
 
-            @if ($errors->any())
-                <ul class="errores">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            @endif
-
             <form method="POST" action="{{ route('login') }}" autocomplete="off">
                 @csrf
                 <label for="email">Correo</label>
-                <input id="email" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required>
+                <input id="email" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required @error('email') aria-invalid="true" aria-describedby="email-error" @enderror>
+                @error('email')
+                    <p class="error-field" id="email-error" role="alert">{{ $message }}</p>
+                @enderror
 
                 <label for="password">Contraseña</label>
                 <div class="password-field">
-                    <input id="password" type="password" name="password" autocomplete="current-password" required>
+                    <input id="password" type="password" name="password" autocomplete="current-password" required @error('password') aria-invalid="true" aria-describedby="password-error" @enderror>
                     <button class="toggle-password" type="button" data-password-toggle aria-controls="password" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button>
                 </div>
+                @error('password')
+                    <p class="error-field" id="password-error" role="alert">{{ $message }}</p>
+                @enderror
 
                 <label class="recordar">
-                    <input type="checkbox" name="recordar" style="width:auto;">
+                    <input type="checkbox" name="recordar" style="width:auto;" checked>
                     Recordarme
                 </label>
 

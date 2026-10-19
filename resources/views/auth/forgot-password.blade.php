@@ -71,10 +71,7 @@
             background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.4);
             color: #00d4ff; padding: 10px 12px; border-radius: 3px; font-size: 13px; margin-bottom: 16px;
         }
-        .error {
-            background: rgba(255, 80, 80, 0.08); border: 1px solid rgba(255, 80, 80, 0.4);
-            color: #ff8080; padding: 10px 12px; border-radius: 3px; font-size: 13px; margin-bottom: 16px;
-        }
+        .error-field { color: #ff8080; font-size: 12px; margin: 6px 0 0; }
 
         .enlaces { margin-top: 20px; text-align: center; font-size: 13px; }
         .enlaces a { color: #00d4ff; text-decoration: none; }
@@ -96,14 +93,14 @@ SE VIENE A LOGRAR</div>
             @if (session('status'))
                 <div class="status-ok">{{ session('status') }}</div>
             @endif
-            @if ($errors->any())
-                <div class="error">{{ $errors->first() }}</div>
-            @endif
 
             <form method="POST" action="{{ route('password.email') }}">
                 @csrf
-                <label>Correo</label>
-                <input type="email" name="email">
+                <label for="email">Correo</label>
+                <input id="email" type="email" name="email" value="{{ old('email') }}" required @error('email') aria-invalid="true" aria-describedby="email-error" @enderror>
+                @error('email')
+                    <p class="error-field" id="email-error" role="alert">{{ $message }}</p>
+                @enderror
                 <button type="submit">Enviar enlace de recuperación</button>
             </form>
 
