@@ -24,6 +24,18 @@
         h1 { margin-top: 0; color: #00d4ff; }
         p { color: #9fb3c8; line-height: 1.6; }
         .status { color: #00d4ff; }
+        label { display: block; margin-top: 24px; color: #e6edf3; }
+        input {
+            width: 100%;
+            margin-top: 8px;
+            padding: 12px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            background: #111a26;
+            color: #e6edf3;
+            font: inherit;
+            letter-spacing: 0.25em;
+        }
+        .error { color: #ff8b8b; }
         button {
             width: 100%;
             margin-top: 16px;
@@ -40,19 +52,25 @@
 <body>
     <main class="panel">
         <h1>Verifica tu correo</h1>
-        <p>Enviamos un enlace de verificación a <strong>{{ auth()->user()->email }}</strong>. Abre el mensaje y confirma tu dirección para acceder a tu cuenta.</p>
+        <p>Enviamos un código de 6 dígitos a <strong>{{ auth()->user()->email }}</strong>. Escríbelo para confirmar tu dirección. El código vence en {{ config('auth.verification.expire', 10) }} minutos.</p>
 
         @if (session('status'))
             <p class="status" role="status">{{ session('status') }}</p>
         @endif
 
-        @if ($errors->any())
-            <p role="alert">{{ $errors->first() }}</p>
-        @endif
+        <form method="POST" action="{{ route('verification.verify') }}">
+            @csrf
+            <label for="code">Código de verificación</label>
+            <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required aria-describedby="code-error" @error('code') aria-invalid="true" @enderror>
+            @error('code')
+                <p class="error" id="code-error" role="alert">{{ $message }}</p>
+            @enderror
+            <button type="submit">Confirmar correo</button>
+        </form>
 
         <form method="POST" action="{{ route('verification.send') }}">
             @csrf
-            <button type="submit">Reenviar enlace de verificación</button>
+            <button type="submit">Reenviar código</button>
         </form>
 
         <form method="POST" action="{{ route('logout') }}">

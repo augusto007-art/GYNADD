@@ -20,8 +20,8 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Verificación de correo
-Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
-    ->middleware(['signed', 'throttle:6,1'])
+Route::middleware('auth')->post('/email/verify', [AuthController::class, 'verifyEmail'])
+    ->middleware('throttle:6,1')
     ->name('verification.verify');
 
 Route::middleware('auth')->group(function () {

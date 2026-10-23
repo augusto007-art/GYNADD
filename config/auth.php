@@ -101,6 +101,10 @@ return [
         ],
     ],
 
+    'verification' => [
+        'expire' => env('AUTH_EMAIL_VERIFICATION_EXPIRE', 10),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Password Confirmation Timeout

@@ -29,11 +29,11 @@ El formulario muestra si la contraseña es insegura (rojo), intermedia (naranja)
 
 ## Verificación de correo
 
-Las cuentas nuevas reciben un enlace de verificación por correo. Las cuentas sin verificar pueden iniciar sesión únicamente para acceder a la pantalla de verificación; las rutas protegidas requieren que el correo esté confirmado. Desde esa pantalla se puede solicitar otro enlace.
+Las cuentas nuevas reciben por correo un código de verificación de 6 dígitos, válido durante 10 minutos. Los códigos se guardan con hash y se limitan los intentos para evitar adivinanzas. Las cuentas sin verificar pueden iniciar sesión únicamente para acceder a la pantalla de verificación; las rutas protegidas requieren que el correo esté confirmado. Desde esa pantalla se puede solicitar otro código.
 
-Para que los mensajes lleguen a los usuarios, configura un proveedor de correo en las variables `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` y `MAIL_FROM_ADDRESS` del entorno. La configuración predeterminada usa el transporte `log`, que escribe los mensajes en los logs de Laravel en vez de enviarlos. El enlace de verificación se genera usando `APP_URL`; configura ahí la dirección pública exacta de la aplicación, incluido el subdirectorio si la instalaste bajo `htdocs` (por ejemplo, `http://localhost/login-app/public` en XAMPP). Después de cambiarla, ejecuta `php artisan config:clear`. El enlace firmado puede abrirse sin iniciar sesión, caduca según el tiempo de verificación configurado y lleva a la pantalla de acceso después de confirmar el correo.
+Para que los mensajes lleguen a los usuarios, configura un proveedor de correo en las variables `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` y `MAIL_FROM_ADDRESS` del entorno. La configuración predeterminada usa el transporte `log`, que escribe los mensajes en los logs de Laravel en vez de enviarlos. La validez del código se puede ajustar con `AUTH_EMAIL_VERIFICATION_EXPIRE` (minutos; 10 por defecto).
 
-El correo de verificación está en español e incluye un botón para confirmar, el enlace alternativo, el plazo de expiración y recomendaciones de seguridad.
+El correo de verificación está en español e incluye el código, el plazo de expiración y recomendaciones de seguridad.
 
 ## Learning Laravel
 

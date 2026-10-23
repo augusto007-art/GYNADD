@@ -47,7 +47,7 @@ public function register(Request $request)
     $user->sendEmailVerificationNotification();
 
     return redirect()->route('login')
-        ->with('status', 'Cuenta creada. Te enviamos un enlace de verificación; confirma tu correo antes de iniciar sesión.');
+        ->with('status', 'Cuenta creada. Te enviamos un código de 6 dígitos; inicia sesión para confirmar tu correo.');
 }
 
     public function checkRegistrationEmail(Request $request)
@@ -168,22 +168,48 @@ public function register(Request $request)
         return view('auth.verify-email');
     }
 
-    public function verifyEmail(int $id, string $hash)
+    public function verifyEmail(Request $request)
     {
-        $user = User::findOrFail($id);
-
-        if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
-            abort(403);
-        }
+        $user = $request->user();
 
         if ($user->hasVerifiedEmail()) {
-            return redirect()->route('login')
-                ->with('status', 'Este correo ya está verificado. Inicia sesión para continuar.');
+            return redirect()->route('home');
         }
 
+        $limiterKey = 'email-verification:'.$user->getKey();
+        if (RateLimiter::tooManyAttempts($limiterKey, 5)) {
+            $seconds = RateLimiter::availableIn($limiterKey);
+
+            return back()->withErrors([
+                'code' => "Demasiados intentos. Espera {$seconds} segundos antes de volver a intentarlo.",
+            ]);
+        }
+
+        $validated = $request->validate([
+            'code' => ['required', 'regex:/\A[0-9]{6}\z/'],
+        ], [
+            'code.required' => 'Escribe el código de 6 dígitos que recibiste por correo.',
+            'code.regex' => 'El código debe tener exactamente 6 dígitos.',
+        ]);
+
+        RateLimiter::hit($limiterKey, 600);
+
+        $verificationCode = $user->emailVerificationCode;
+        if (
+            ! $verificationCode
+            || $verificationCode->expires_at->isPast()
+            || ! Hash::check($validated['code'], $verificationCode->code)
+        ) {
+            return back()->withErrors([
+                'code' => 'El código no es válido o ya venció. Revisa el correo o solicita uno nuevo.',
+            ]);
+        }
+
+        $verificationCode->delete();
         if ($user->markEmailAsVerified()) {
             event(new Verified($user));
         }
+        RateLimiter::clear($limiterKey);
 
         return redirect()->route('login')
             ->with('status', 'Correo verificado correctamente. Ya puedes iniciar sesión.');
@@ -195,9 +221,18 @@ public function register(Request $request)
             return redirect()->route('home');
         }
 
+        $limiterKey = 'email-verification:'.$request->user()->getKey();
+        if (RateLimiter::tooManyAttempts($limiterKey, 5)) {
+            $seconds = RateLimiter::availableIn($limiterKey);
+
+            return back()->withErrors([
+                'code' => "Espera {$seconds} segundos antes de solicitar otro código.",
+            ]);
+        }
+
         $request->user()->sendEmailVerificationNotification();
 
-        return back()->with('status', 'Te enviamos un nuevo enlace de verificación.');
+        return back()->with('status', 'Te enviamos un nuevo código de 6 dígitos.');
     }
 
     public function logout(Request $request)

@@ -7,7 +7,9 @@ use Database\Factories\UserFactory;
 use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements MustVerifyEmailContract
@@ -51,6 +53,22 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
     public function sendEmailVerificationNotification(): void
     {
-        $this->notify(new VerifyEmailNotification());
+        $code = (string) random_int(0, 999999);
+        $code = str_pad($code, 6, '0', STR_PAD_LEFT);
+
+        $this->emailVerificationCode()->updateOrCreate(
+            [],
+            [
+                'code' => Hash::make($code),
+                'expires_at' => now()->addMinutes(config('auth.verification.expire', 10)),
+            ]
+        );
+
+        $this->notify(new VerifyEmailNotification($code));
+    }
+
+    public function emailVerificationCode(): HasOne
+    {
+        return $this->hasOne(EmailVerificationCode::class);
     }
 }

@@ -6,7 +6,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\RateLimiter;
 use App\Notifications\VerifyEmailNotification;
 use Tests\TestCase;
 
@@ -65,9 +65,14 @@ class AuthSecurityTest extends TestCase
         ]);
 
         $response->assertRedirect(route('login'));
-        $response->assertSessionHas('status', 'Cuenta creada. Te enviamos un enlace de verificación; confirma tu correo antes de iniciar sesión.');
+        $response->assertSessionHas('status', 'Cuenta creada. Te enviamos un código de 6 dígitos; inicia sesión para confirmar tu correo.');
+        $user = User::where('email', 'ada@example.test')->first();
         $this->assertDatabaseHas('users', ['email' => 'ada@example.test']);
-        Notification::assertSentTo(User::where('email', 'ada@example.test')->first(), VerifyEmailNotification::class);
+        $this->assertDatabaseHas('email_verification_codes', ['user_id' => $user->id]);
+        $this->assertDoesNotMatchRegularExpression('/\A[0-9]{6}\z/', $user->emailVerificationCode->code);
+        Notification::assertSentTo($user, VerifyEmailNotification::class, function ($notification) {
+            return preg_match('/\A[0-9]{6}\z/', $notification->code) === 1;
+        });
     }
 
     public function test_registration_accepts_passwords_at_both_length_boundaries(): void
@@ -180,6 +185,8 @@ class AuthSecurityTest extends TestCase
         $this->get('/email/verify')
             ->assertOk()
             ->assertSee('Verifica tu correo')
+            ->assertSee('código de 6 dígitos')
+            ->assertSee('name="code"', false)
             ->assertSee($user->email);
 
         $this->get('/home')->assertRedirect(route('verification.notice'));
@@ -195,22 +202,21 @@ class AuthSecurityTest extends TestCase
 
         $this->actingAs($user)->post(route('verification.send'))
             ->assertRedirect()
-            ->assertSessionHas('status', 'Te enviamos un nuevo enlace de verificación.');
-        Notification::assertSentTo($user, VerifyEmailNotification::class);
+            ->assertSessionHas('status', 'Te enviamos un nuevo código de 6 dígitos.');
+        $code = null;
+        Notification::assertSentTo($user, VerifyEmailNotification::class, function ($notification) use (&$code) {
+            $code = $notification->code;
 
-        $verificationUrl = URL::temporarySignedRoute(
-            'verification.verify',
-            now()->addMinutes(60),
-            ['id' => $user->id, 'hash' => sha1($user->email)]
-        );
+            return true;
+        });
 
-        $this->post(route('logout'))->assertRedirect(route('login'));
-
-        $this->get($verificationUrl)
+        $this->post(route('verification.verify'), ['code' => $code])
             ->assertRedirect(route('login'))
             ->assertSessionHas('status', 'Correo verificado correctamente. Ya puedes iniciar sesión.');
 
         $this->assertNotNull($user->fresh()->email_verified_at);
+        $this->assertDatabaseMissing('email_verification_codes', ['user_id' => $user->id]);
+        $this->post(route('logout'))->assertRedirect(route('login'));
         $this->post('/login', [
             'email' => $user->email,
             'password' => 'V3rde!20',
@@ -224,32 +230,50 @@ class AuthSecurityTest extends TestCase
             'name' => 'Ada Lovelace',
             'email' => 'ada@example.test',
         ]);
-        $mail = (new VerifyEmailNotification())->toMail($user);
+        $mail = (new VerifyEmailNotification('012345'))->toMail($user);
         $html = $mail->render();
 
         $this->assertStringContainsString('lang="es"', $html);
         $this->assertStringContainsString('Hola, <strong>Ada Lovelace</strong>', $html);
-        $this->assertStringContainsString('Verificar mi correo', $html);
-        $this->assertStringContainsString('caduca en 60 minutos', $html);
+        $this->assertStringContainsString('012345', $html);
+        $this->assertStringContainsString('caduca en 10 minutos', $html);
         $this->assertStringContainsString('¿No creaste esta cuenta?', $html);
         $this->assertStringContainsString('ada@example.test', $html);
-        $this->assertStringStartsWith('http://localhost/email/verify/', $mail->viewData['verificationUrl']);
+        $this->assertArrayNotHasKey('verificationUrl', $mail->viewData);
     }
 
-    public function test_signed_verification_link_rejects_a_hash_that_does_not_match_the_user_email(): void
+    public function test_email_verification_rejects_invalid_codes_and_expires_old_codes(): void
     {
         $user = User::factory()->unverified()->create([
             'email' => 'ada@example.test',
         ]);
-        $verificationUrl = URL::temporarySignedRoute(
-            'verification.verify',
-            now()->addMinutes(60),
-            ['id' => $user->id, 'hash' => sha1('different@example.test')]
-        );
+        $user->sendEmailVerificationNotification();
 
-        $this->get($verificationUrl)->assertForbidden();
+        $this->actingAs($user)->post(route('verification.verify'), ['code' => '999999'])
+            ->assertSessionHasErrors('code');
 
         $this->assertNull($user->fresh()->email_verified_at);
+
+        $user->emailVerificationCode()->update(['expires_at' => now()->subMinute()]);
+        $this->actingAs($user)->post(route('verification.verify'), ['code' => '123456'])
+            ->assertSessionHasErrors('code');
+        $this->assertNull($user->fresh()->email_verified_at);
+    }
+
+    public function test_email_verification_limits_code_attempts(): void
+    {
+        $user = User::factory()->unverified()->create();
+        $user->sendEmailVerificationNotification();
+        $this->actingAs($user);
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->post(route('verification.verify'), ['code' => '999999'])
+                ->assertSessionHasErrors('code');
+        }
+
+        $this->post(route('verification.verify'), ['code' => '999999'])
+            ->assertSessionHasErrors('code');
+        $this->assertSame(5, RateLimiter::attempts('email-verification:'.$user->id));
     }
 
     public function test_login_explains_whether_the_email_is_unregistered_or_password_is_incorrect(): void
